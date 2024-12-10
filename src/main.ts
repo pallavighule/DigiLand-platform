@@ -24,7 +24,7 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('DigiLand')
-    .setDescription('API documentation for Project Name')
+    .setDescription('API documentation for DigiLand ')
     .setVersion('v1')
     .build();
 

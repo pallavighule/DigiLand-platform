@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Long, TransferTransaction } from '@hashgraph/sdk';
 import {
   AccountId,
   PrivateKey,
@@ -9,6 +10,7 @@ import {
   TokenMintTransaction,
   TokenSupplyType,
   TokenPauseTransaction,
+  TokenUpdateNftsTransaction,
 } from '@hashgraph/sdk';
 import { CreateTokenDto } from './DTOS/create-token';
 import { PinataSDK } from 'pinata-web3';
@@ -186,4 +188,103 @@ export class LandNFTService {
   }
 
   async uploadFileToPinata(): Promise<void> {}
+
+  async updateTokenMetadata(tokenId: string): Promise<void> {
+    try {
+      const adminPrivateKey = PrivateKey.fromStringECDSA(
+        `${process.env.ADMIN_PRIVATE_KEY}`,
+      );
+
+      const adminPublicKey = adminPrivateKey.publicKey;
+
+      const nftSerialNumbers = [1];
+
+      const CIDs = [
+        Buffer.from(
+          'ipfs://bafkreig6fiv7vheriq3shwpjmf7qazarjhlheiq22fjyei7oh7auncxiny',
+        ),
+      ];
+
+      const concatenatedBuffer = Buffer.concat(CIDs);
+      const uint8Array = new Uint8Array(concatenatedBuffer);
+
+      // Create the TokenUpdateNftsTransaction
+      const tokenUpdateNftsTx = await new TokenUpdateNftsTransaction()
+        .setTokenId(tokenId)
+        .setSerialNumbers([Long.fromInt(1)]) // Specify which NFTs to update by serial number
+        .setMetadata(uint8Array) // Set the new metadata
+        .freezeWith(this.client);
+
+      // Sign the transaction with the metadata key
+      const signedTx = await tokenUpdateNftsTx.sign(adminPrivateKey);
+
+      // Execute the transaction
+      const txResponse = await signedTx.execute(this.client);
+
+      // Get the receipt
+      const tokenUpdateNftsReceipt = await txResponse.getReceipt(this.client);
+
+      // Log the transaction status
+      if (tokenUpdateNftsReceipt.status.toString() === 'SUCCESS') {
+        this.logger.log(
+          `Successfully updated metadata for token ID: ${tokenId}`,
+        );
+      } else {
+        this.logger.warn(`Metadata update failed for token ID: ${tokenId}`);
+      }
+    } catch (error) {
+      this.logger.error('Error updating token metadata:', error);
+      throw error;
+    }
+  }
+
+  async transferLand(
+    tokenId: string,
+    fromAccountId: string,
+    toAccountId: string,
+    serialNumber: number,
+  ): Promise<void> {
+    try {
+      this.logger.log(
+        `Initiating transfer of token ${tokenId} from ${fromAccountId} to ${toAccountId} with serial number ${serialNumber}`,
+      );
+
+      // Create the TransferTransaction
+      const transferTx = await new TransferTransaction()
+        .addNftTransfer(tokenId, serialNumber, fromAccountId, toAccountId)
+        .freezeWith(this.client); // Freeze the transaction with the client
+
+      // Sign the transaction with the operator key
+      const operatorKey = PrivateKey.fromStringECDSA(
+        process.env.PRIVATE_KEY_HEX!,
+      );
+      const signTx = await transferTx.sign(operatorKey);
+
+      // Execute the transaction
+      const response = await signTx.execute(this.client);
+
+      // Wait for the receipt to confirm the transaction
+      const receipt = await response.getReceipt(this.client);
+
+      // Log the transaction status
+      if (receipt.status.toString() === 'SUCCESS') {
+        this.logger.log(
+          `Successfully transferred NFT (tokenId: ${tokenId}) from ${fromAccountId} to ${toAccountId}`,
+        );
+      } else {
+        this.logger.warn(
+          `NFT transfer failed for tokenId: ${tokenId} with status: ${receipt.status.toString()}`,
+        );
+      }
+    } catch (error) {
+      // Log the error
+      this.logger.error(`Error during transfer: ${error.message}`, {
+        tokenId,
+        fromAccountId,
+        toAccountId,
+        serialNumber,
+      });
+      throw error;
+    }
+  }
 }
