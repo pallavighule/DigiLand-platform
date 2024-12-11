@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Long, TransferTransaction } from '@hashgraph/sdk';
 import {
   AccountId,
@@ -179,6 +179,10 @@ export class LandNFTService {
       this.logger.log(`File uploaded to Pinata: ${upload.IpfsHash}`);
       return upload;
     } catch (error) {
+      throw new HttpException(
+        'Error while uploading file on pinata: ' + error.message,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
       this.logger.error('Error uploading file to Pinata:', error);
     }
   }

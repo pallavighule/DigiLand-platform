@@ -76,13 +76,21 @@ export class LandNftController {
    * @param body - Request body containing the tokenId.
    */
   @Post('/pauseLandToken')
-  async pauseLandToken(@Body() body: PauseTokenMetadataDto): Promise<string> {
+  async pauseLandToken(
+    @Body() body: PauseTokenMetadataDto,
+  ): Promise<ResponseType> {
     try {
       const { tokenId } = body;
       const result = await this.landNftService.pauseToken(tokenId);
-      return result
-        ? `Token with ID: ${tokenId} successfully paused.`
-        : `Failed to pause token with ID: ${tokenId}.`;
+      if (!result) {
+        throw new BadRequestException('Failed to pause token');
+      }
+      const res: ResponseType = {
+        statusCode: 200,
+        message: 'Land token paused successfully',
+        data: { tokenId },
+      };
+      return res;
     } catch (err) {
       this.logger.error('Error pausing land token:', err);
       throw err;
@@ -95,7 +103,7 @@ export class LandNftController {
   @Post('/updateLandTokenMetadata')
   async updateTokenMetadata(
     @Body() body: UpdateTokenMetadataDto,
-  ): Promise<string> {
+  ): Promise<ResponseType> {
     try {
       const { tokenId } = body;
       // Assuming metadata is passed as a string for simplicity, you can structure it as needed
@@ -104,7 +112,13 @@ export class LandNftController {
       // Call the service method to update the token metadata
       await this.landNftService.updateTokenMetadata(tokenId);
 
-      return `Metadata successfully updated for token ID: ${tokenId}`;
+      const res = {
+        statusCode: 200,
+        message: 'Land token metadata updated successfully',
+        data: { tokenId },
+      };
+      return res;
+
     } catch (err) {
       this.logger.error('Error updating land token metadata:', err);
       throw err;
@@ -115,7 +129,7 @@ export class LandNftController {
   async transferLand(
     @Param('tokenId') tokenId: string,
     @Body() transferData: TransferDataDto, // Use the DTO here for validation
-  ): Promise<string> {
+  ): Promise<ResponseType> {
     const { fromAccountId, toAccountId, serialNumber } = transferData;
 
     try {
@@ -132,8 +146,12 @@ export class LandNftController {
         serialNumber,
       );
 
-      // Return success message
-      return `Successfully initiated transfer of token ${tokenId} from ${fromAccountId} to ${toAccountId}.`;
+      const res = {
+        statusCode: 200,
+        message: 'Land token transferred successfully',
+        data: { tokenId, fromAccountId, toAccountId },
+      };
+      return res;
     } catch (error) {
       this.logger.error('Error processing transfer request', error.stack);
       throw new BadRequestException('Transfer failed. Please try again later.');
