@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { LandNFTService } from './land-nft.service';
 import { CreateTokenDto, MintTokenDto } from './DTOS/create-token';
+import { ResponseType } from '@src/common/response';
 
 @Controller('land-nft')
 export class LandNftController {
@@ -12,10 +13,15 @@ export class LandNftController {
    * Endpoint to register a new land token.
    */
   @Post('/registerLandToken')
-  async registerLandToken(@Body() data: CreateTokenDto): Promise<string> {
+  async registerLandToken(@Body() data: CreateTokenDto): Promise<ResponseType> {
     try {
       const tokenId = await this.landNftService.createLandToken(data);
-      return `Token successfully registered with ID: ${tokenId}`;
+      const res: ResponseType = {
+        statusCode: 201,
+        message: 'Land token registered successfully',
+        data: { tokenId },
+      };
+      return res;
     } catch (err) {
       this.logger.error('Error registering land token:', err);
       throw err;
@@ -27,13 +33,25 @@ export class LandNftController {
    * @param body - Request body containing tokenId and metadata array.
    */
   @Post('/mintLandToken')
-  async mintLandToken(@Body() body: MintTokenDto): Promise<string> {
+  async mintLandToken(@Body() body: MintTokenDto): Promise<ResponseType> {
     try {
       const { tokenId } = body;
-      const metadata = `${body.surveyNumber}, ${body.ownerName},${body.size} ${body.location}, ${body.landType}, ${body.additionalInfo}`;
+      const metadata = {
+        surveyNumber: body.surveyNumber,
+        ownerName: body.ownerName,
+        size: body.size,
+        location: body.location,
+        landType: body.landType,
+        additionalInfo: body.additionalInfo,
+      };
       // const metadataBuffers = metadata.map((item) => Buffer.from(item));
-      await this.landNftService.mintLandToken(tokenId, [Buffer.from(metadata)]);
-      return `Metadata successfully minted for token ID: ${tokenId}`;
+      await this.landNftService.mintLandToken(tokenId, metadata);
+      const res: ResponseType = {
+        statusCode: 200,
+        message: 'Land token metadata minted successfully',
+        data: { tokenId },
+      };
+      return res;
     } catch (err) {
       this.logger.error('Error minting land token metadata:', err);
       throw err;

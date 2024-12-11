@@ -11,7 +11,9 @@ import {
   TokenPauseTransaction,
 } from '@hashgraph/sdk';
 import { CreateTokenDto } from './DTOS/create-token';
-import { PinataSDK } from 'pinata-web3';
+import { PinataSDK, PinResponse } from 'pinata-web3';
+import { v4 as uuidv4 } from 'uuid';
+import { File } from 'formdata-node';
 
 @Injectable()
 export class LandNFTService {
@@ -37,9 +39,8 @@ export class LandNFTService {
     this.client.setDefaultMaxQueryPayment(new Hbar(50));
 
     this.pinata = new PinataSDK({
-      pinataJwt:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI4OTg2ZTQ5OC1hYjM1LTRmNDMtYWFjMC05NDYzMDZjNGEyN2QiLCJlbWFpbCI6Imtob2xlc2FnYXI0QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJmYmI5YmUxYjA4NTM1NDBjYmFlMiIsInNjb3BlZEtleVNlY3JldCI6IjEzOTFjNTlkZjNmODk1ZTkxNGE3YzQyMmYyZGU5YWU0ZTY4MGQ0NjRkYzY3YjkyZjdiMDI4NmU3MDQ1MWU5ZTkiLCJleHAiOjE3NjUxMTk0MDZ9.eZYK_orMKUTKL95I3OKxygtOjaO9ozSDkole0K82ywo',
-      pinataGateway: 'moccasin-itchy-cheetah-968.mypinata.cloud',
+      pinataJwt: `${process.env.PINATA_JWT}`,
+      pinataGateway: `${process.env.PINATA_GATEWAY}`,
     });
   }
 
@@ -87,50 +88,18 @@ export class LandNFTService {
    * @param tokenId - The ID of the token to mint.
    * @param metadata - Array of metadata buffers for the parcels.
    */
-  async mintLandToken(tokenId: string, metadata: Buffer[]): Promise<void> {
+  async mintLandToken(
+    tokenId: string,
+    metadata: Record<string, string>,
+  ): Promise<void> {
     try {
       const adminPrivateKey = PrivateKey.fromStringECDSA(
         `${process.env.ADMIN_PRIVATE_KEY}`,
       );
 
-      // const metadata = {
-      //   contentLocation: "ipfs://bafkreig73xgqp7wy7qvjwz33rp3nkxaxqlsb7v3id24poe2dath7pj5dhe",
-      //   format: "HIP412@2.0.0",
-      //   image: "ipfs://QmXbV2QztazJjAiZn1tv4oEBrSnRSRaXyDtnLLBp13ixNj",
-      //   type: "image/jpg",
-      //   properties: {
-      //     city: "Boston",
-      //     season: "Fall",
-      //     decade: "20's",
-      //     license: "MIT-0",
-      //     collection: "Fall Collection",
-      //     website: "www.hashgraph.com"
-      //   }
-      // };
+      const file = await this.uploadFileToPinata(metadata);
 
-      // // Base64-encode the metadata
-      // const base64Metadata = [Buffer.from(JSON.stringify(metadata))];
-
-      const myObject = {
-        name: 'Token',
-        type: 'NFT',
-        properties: {
-          creator: 'John Doe',
-          license: 'MIT',
-        },
-      };
-
-      // Convert the object to a JSON string
-      const jsonString = JSON.stringify(myObject);
-
-      // Convert the JSON string to a Uint8Array using TextEncoder
-      const uint8Array = new TextEncoder().encode(jsonString);
-
-      const CIDs = [
-        Buffer.from(
-          'ipfs://bafkreiantubzs4brdvb3fh4vhxgvd2fm672m5al3n5m2nqxbnftg6ungem',
-        ),
-      ];
+      const CIDs = [Buffer.from(`ipfs://${file.IpfsHash}`)];
 
       const transaction = await new TokenMintTransaction()
         .setTokenId(tokenId)
@@ -185,5 +154,31 @@ export class LandNFTService {
     }
   }
 
-  async uploadFileToPinata(): Promise<void> {}
+  async uploadFileToPinata(metadata: object): Promise<PinResponse> {
+    try {
+      const data = {
+        name: 'LEAF1',
+        creator: `${process.env.SERVICE_NAME}`,
+        description: 'Autumn',
+        image:
+          'ipfs://bafkreidmnqjs3cb3t3tnowxods2o3dzijmdakha437h6lmfjc46ihfsg44',
+        type: 'image/jpg',
+        format: `${process.env.MINT_META_DATA_FORMAT}`,
+        properties: {
+          ...metadata,
+        },
+      };
+
+      const file = new File([JSON.stringify(data)], `${uuidv4()}.json`, {
+        type: 'application/json',
+      });
+
+      const upload = await this.pinata.upload.file(file);
+      this.logger.log(`File uploaded to Pinata: ${upload.IpfsHash}`);
+      return upload;
+    } catch (error) {
+      this.logger.error('Error uploading file to Pinata:', error);
+      throw error;
+    }
+  }
 }
