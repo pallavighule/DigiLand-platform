@@ -1,4 +1,4 @@
-import { IsString, Length } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTokenDto {
@@ -93,3 +93,47 @@ export const exampleMintTokenData = {
   landType: 'Agricultural',
   additionalInfo: 'Certified organic land',
 };
+
+export class UpdateTokenMetadataDto {
+  @ApiProperty({
+    example: '123456',
+    description: 'The unique identifier for the token',
+  })
+  @IsString()
+  tokenId: string;
+}
+
+export class PauseTokenMetadataDto {
+  @ApiProperty({
+    example: '123456',
+    description: 'The unique identifier for the token',
+  })
+  @IsString()
+  tokenId: string;
+}
+
+export class TransferDataDto {
+  @ApiProperty({
+    description: 'The ID of the account transferring the NFT',
+    type: String,
+  })
+  @IsString()
+  @IsNotEmpty()
+  fromAccountId: string;
+
+  @ApiProperty({
+    description: 'The ID of the account receiving the NFT',
+    type: String,
+  })
+  @IsString()
+  @IsNotEmpty()
+  toAccountId: string;
+
+  @ApiProperty({
+    description: 'The serial number of the NFT being transferred',
+    type: Number,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  serialNumber: number;
+}
